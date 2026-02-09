@@ -428,6 +428,43 @@
     }
 
     function removePolishChars(s) { return s ? s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, 'l').replace(/Ł/g, 'L') : s; }
+    async function wyslijDaneDoArkusza() {
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbw6x3bQXKM02jm0ViMQ0FoRhWvVt16un-vd_JADvJ2gUtyLddB9mhuFUNy5z1WeAp5Y4Q/exec'; // TUTAJ WKLEJ URL Z GOOGLE APPS SCRIPT
+
+    const payload = {
+        dataWygenerowania: new Date().toLocaleString('pl-PL'),
+        numerOferty: numerZapisanejOferty || "Brak",
+        klient: daneOferty.klient.imie,
+        handlowiec: daneOferty.handlowiec.imie,
+        kwotaNetto: daneOferty.obliczenia.sumaNettoFinal,
+        kwotaBrutto: daneOferty.obliczenia.cenaKoncowa,
+        produkty: document.getElementById('lista-wybranych-elementow').innerText.replace(/\n/g, ", "),
+        marzaHandlowca: daneOferty.obliczenia.marzaDlaPH,
+        marzaDlaFirmy: daneOferty.nadprowizje.firma,
+        nadprowizjaDyrektora: daneOferty.nadprowizje.dyrektor,
+        nadprowizjaKierownika: daneOferty.nadprowizje.kierownik,
+        nadprowizjaFirmy: daneOferty.nadprowizje.firma
+    };
+
+    try {
+        // Używamy mode: 'no-cors' ponieważ Google Apps Script robi przekierowania, 
+        // co często blokuje standardowy fetch w przeglądarce
+        await fetch(scriptURL, {
+            method: 'POST',
+            mode: 'no-cors', 
+            cache: 'no-cache',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        console.log("Dane wysłane do arkusza (status sprawdzisz w Google Sheets)");
+    } catch (error) {
+        console.error('Błąd wysyłki:', error);
+    }
+}
+
+// Podepnij wysyłkę pod przyciski generowania PDF
+document.getElementById('przycisk-pdf-klient').addEventListener('click', wyslijDaneDoArkusza);
+document.getElementById('przycisk-pdf-biuro').addEventListener('click', wyslijDaneDoArkusza);
 
     function generujPDF(typ) {
         aktualizujPodsumowanieWizualne();
