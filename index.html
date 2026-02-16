@@ -466,10 +466,16 @@
 document.getElementById('przycisk-pdf-klient').addEventListener('click', wyslijDaneDoArkusza);
 document.getElementById('przycisk-pdf-biuro').addEventListener('click', wyslijDaneDoArkusza);
 
-    function generujPDF(typ) {
+   function generujPDF(typ) {
         aktualizujPodsumowanieWizualne();
         if (!daneOferty.klient.imie) { alert("Proszę wypełnić dane klienta."); przejdzDoEtapu(4); return; }
         if (!numerZapisanejOferty) { const d = new Date(); numerZapisanejOferty = `GN/${d.getDate().toString().padStart(2, '0')}${(d.getMonth() + 1).toString().padStart(2, '0')}${d.getFullYear()}/${String(Date.now()).slice(-4)}`; }
+        
+        // Jeśli to oferta dla biura, wyślij dane do Google Sheets (opcjonalnie, jeśli masz tę funkcję)
+        if (typ === 'biuro' && typeof wyslijDaneDoArkusza === 'function') {
+             wyslijDaneDoArkusza();
+        }
+
         const { jsPDF } = window.jspdf; const doc = new jsPDF(); const zielony = [0, 91, 65];
         if (LOGO_BASE64.length > 200) doc.addImage(LOGO_BASE64, 'PNG', 15, 15, 60, 25);
         doc.setFontSize(22); doc.setTextColor(...zielony); doc.setFont('helvetica', 'bold');
@@ -477,19 +483,44 @@ document.getElementById('przycisk-pdf-biuro').addEventListener('click', wyslijDa
         doc.setFontSize(10); doc.setTextColor(100); doc.setFont('helvetica', 'normal');
         doc.text(removePolishChars(`Numer: ${numerZapisanejOferty}`), 195, 35, { align: 'right' });
         doc.text(removePolishChars(`Data: ${new Date().toLocaleDateString('pl-PL')}`), 195, 42, { align: 'right' });
+        
         let y = 65; doc.setFontSize(11); doc.setTextColor(...zielony); doc.setFont('helvetica', 'bold');
         doc.text("NABYWCA", 15, y); doc.text("SPRZEDAWCA", 105, y); doc.line(15, y+2, 195, y+2);
         y += 10; doc.setFontSize(10); doc.setTextColor(50); doc.text(removePolishChars(daneOferty.klient.imie), 15, y); doc.text("GREEN NOW SP. Z O.O.", 105, y);
         doc.setFont('helvetica', 'normal'); doc.text(removePolishChars(daneOferty.klient.adres), 15, y+7); doc.text(removePolishChars(daneOferty.klient.kod), 15, y+14); doc.text(`tel: ${daneOferty.klient.telefon}`, 15, y+21);
         doc.text(removePolishChars(`Handlowiec: ${daneOferty.handlowiec.imie}`), 105, y+7); doc.text(`tel: ${daneOferty.handlowiec.telefon}`, 105, y+14);
+        
         y += 45; doc.setFontSize(12); doc.setTextColor(...zielony); doc.setFont('helvetica', 'bold'); doc.text("ZAKRES PRAC I MATERIALOW", 15, y);
-        let list = []; const add = (l, v) => { if(v && v !== '0' && v !== 'Brak' && v !== '-- Wybierz --' && v !== 'NIE DOTYCZY' && v !== 'NIE') list.push([removePolishChars("- " + l + ": " + v)]); };
-        if(daneOferty.oplataDokladka > 0) add('Typ', 'Dokladka (+400 zl netto)'); add('Zestaw', daneOferty.zestawPV.text); add('Magazyn DEYE', daneOferty.magazynNisko.text); add('Magazyn DYNESS', daneOferty.magazynWysoko.text); add('Sigen 1', daneOferty.magazynSigen1.text); add('Sigen 2', daneOferty.magazynSigen2.text); add('Ladowarka', daneOferty.ladowarka.text);
+        
+        let list = []; 
+        const add = (l, v) => { if(v && v !== '0' && v !== 'Brak' && v !== '-- Wybierz --' && v !== 'NIE DOTYCZY' && v !== 'NIE') list.push([removePolishChars("- " + l + ": " + v)]); };
+        
+        if(daneOferty.oplataDokladka > 0) add('Typ', 'Dokladka (+400 zl netto)'); 
+        add('Zestaw', daneOferty.zestawPV.text); 
+        add('Magazyn DEYE', daneOferty.magazynNisko.text); 
+        add('Magazyn DYNESS', daneOferty.magazynWysoko.text); 
+        add('Sigen 1', daneOferty.magazynSigen1.text); 
+        add('Sigen 2', daneOferty.magazynSigen2.text); 
+        add('Ladowarka', daneOferty.ladowarka.text);
+        if (daneOferty.dodatkiMagazyn) add('Bufor ciepla', daneOferty.dodatkiMagazyn.text);
+        add('Dodatkowe moduly', daneOferty.dodatkiModuly.text);
+        add('Turbina', daneOferty.turbinaWiatrowa.text);
+        if (daneOferty.przekop.value !== 'brak') add('Prace ziemne', `${daneOferty.przekop.text} (${daneOferty.przekop.dlugosc}m)`);
+        if (daneOferty.samKabel.cena > 0) add('Kabel', `${daneOferty.samKabel.text} (${daneOferty.samKabel.dlugosc}m)`);
+        add('Klimatyzacja', daneOferty.klimatyzacja.text);
+        add('Wymiana falownika', daneOferty.wymianaFalownikMagazyn.text); // <--- TUTAJ BYŁ BRAK
+        add('Modernizacja', daneOferty.modernizacjaRozdzielni.text);
+        if (daneOferty.inneDodatki.cena > 0) add(daneOferty.inneDodatki.nazwa, `${daneOferty.inneDodatki.cena} zl`);
+
         doc.autoTable({ startY: y+10, body: list, theme: 'plain', styles: { fontSize: 10 } });
-        let summary = []; if(typ === 'biuro') summary.push(["Marza:", `${daneOferty.obliczenia.marzaDlaPH.toFixed(2)} zl`]);
+        
+        let summary = []; 
+        if(typ === 'biuro') summary.push(["Marza:", `${daneOferty.obliczenia.marzaDlaPH.toFixed(2)} zl`]);
         summary.push(["Netto:", `${daneOferty.obliczenia.sumaNettoFinal.toFixed(2)} zl`], ["VAT:", `${daneOferty.obliczenia.kwotaVat.toFixed(2)} zl`], ["BRUTTO:", `${daneOferty.obliczenia.cenaKoncowa.toFixed(2)} zl`]);
+        
         doc.autoTable({ startY: doc.lastAutoTable.finalY + 10, body: summary, theme: 'plain', styles: { halign: 'right', fontStyle: 'bold' }, margin: { left: 80 } });
-        doc.save(`Oferta_${removePolishChars(daneOferty.klient.imie).replace(/ /g,'_')}.pdf`);
+        
+        doc.save(`Oferta_${removePolishChars(daneOferty.klient.imie).replace(/ /g,'_')}_${typ}.pdf`);
     }
 
     document.getElementById('typ-pokrycia').addEventListener('change', odswiezWszystkieListy);
